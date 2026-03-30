@@ -39,12 +39,18 @@ Owner:
 - Actions
   - Add/remove pet
 
+Tasks was chosen for keeping track of what needs to be done and any underlying context (i.e. timing, importance, etc.). Pets was chosen to keep track of which Pets a certain task is for. Owner was chosen for having the organization of the one-to-many relationship between Owner to Pets and the one between Pets to Tasks. Scheduler was added later in order to organize and group tasks by attributes other than which Pet they belong to. 
 
 
 **b. Design changes**
 
 - Did your design change during implementation?
+
+Yes
+
 - If yes, describe at least one change and why you made it.
+
+The intentions in the README.md described "owner preference" and "time constraints" to be important when organizing the order of the tasks. I adapted my design to have prioritizing changed to "owner preference" for consistency/intuitiveness and the time constraint be implied by the Tuple field of Task object containing the start time and end time. This can make it such that the information is described to the user and developer using similar terminology.
 
 ---
 
