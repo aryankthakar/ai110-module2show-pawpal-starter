@@ -5,7 +5,41 @@
 **a. Initial design**
 
 - Briefly describe your initial UML design.
+
+Core actions to perform:
+- Add and schedule a task
+- Set how frequent this task will be recurring
+- See tasks for a specific date
+
 - What classes did you include, and what responsibilities did you assign to each?
+
+Task:
+- Info
+  - description
+  - date to complete the task
+  - how often task repeats (daily, weekly, monthly, custom)
+  - Priority level (likert scale, 1 being highest and 3-4 being lowest)
+  - Specific time (defaults to empty)
+- Actions
+  - Edit description
+  - Edit priority level (defaults to priority 3 or 4)
+  - Edit date to complete task (defaults to today or no date)
+  - Edit recurring frequency of task (defaults to None)
+  - Edit time block to complete the task
+
+Pets:
+- Info
+  - List of Tasks
+- Action
+  - Add/Remove task
+
+Owner:
+- Info
+  - List of Pets
+- Actions
+  - Add/remove pet
+
+
 
 **b. Design changes**
 
