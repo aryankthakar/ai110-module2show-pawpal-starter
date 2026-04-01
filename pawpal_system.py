@@ -101,6 +101,16 @@ class Pet:
                 next_date = task.date_to_complete + timedelta(weeks=1)
                 new_task = Task(task.description, next_date, task.recurring_frequency, task.owner_preference, task.specific_time)
                 self.add_task(new_task)
+            elif task.recurring_frequency == "monthly":
+                # Calculate next month
+                year = task.date_to_complete.year
+                month = task.date_to_complete.month + 1
+                if month > 12:
+                    month = 1
+                    year += 1
+                next_date = task.date_to_complete.replace(year=year, month=month)
+                new_task = Task(task.description, next_date, task.recurring_frequency, task.owner_preference, task.specific_time)
+                self.add_task(new_task)
 
 
 class Owner:

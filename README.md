@@ -46,8 +46,32 @@ This implementation includes advanced scheduling features that go beyond basic t
 - Customizable display options
 
 ### 📊 **Comprehensive Testing**
-- 17 unit tests covering all major functionality
+- 23 unit tests covering all major functionality
 - Edge case handling and algorithmic validation
+
+## Testing PawPal+
+
+### Running Tests
+
+To run the test suite, use the following command:
+
+```bash
+python -m pytest
+```
+
+### Test Coverage
+
+The test suite covers critical PawPal+ functionality including:
+- Task creation, editing, and completion
+- Recurring task logic (daily, weekly, monthly)
+- Priority-based and chronological sorting
+- Conflict detection for overlapping time slots
+- Task filtering by completion status and pet name
+- Daily plan generation and explanation
+
+### Confidence Level
+
+⭐⭐⭐⭐⭐ (5/5 stars) - All 23 tests pass, providing high confidence in system reliability for core scheduling features.
 
 ## Getting started
 

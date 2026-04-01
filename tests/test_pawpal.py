@@ -248,3 +248,100 @@ def test_scheduler_detect_conflicts():
     conflicts = scheduler.detect_conflicts(tasks)
     assert len(conflicts) == 1
     assert (task1, task2) in conflicts or (task2, task1) in conflicts
+
+
+def test_scheduler_sorting_chronological_within_priority():
+    """Verify tasks are sorted chronologically within the same priority level."""
+    owner = Owner()
+    pet = Pet(name="Pet", tasks=[])
+    # All medium priority, different times
+    task1 = Task("Task1", date.today(), "none", "medium", (time(14, 0), time(15, 0)))
+    task2 = Task("Task2", date.today(), "none", "medium", (time(10, 0), time(11, 0)))
+    task3 = Task("Task3", date.today(), "none", "medium", (time(12, 0), time(13, 0)))
+    pet.add_task(task1)
+    pet.add_task(task2)
+    pet.add_task(task3)
+    owner.add_pet(pet)
+    scheduler = Scheduler()
+    plan = scheduler.generate_daily_plan(owner, date.today())
+    assert len(plan) == 3
+    # Should be sorted by time: task2 (10:00), task3 (12:00), task1 (14:00)
+    assert plan[0].description == "Task2"
+    assert plan[1].description == "Task3"
+    assert plan[2].description == "Task1"
+
+
+def test_scheduler_sorting_tasks_without_times_at_end():
+    """Verify tasks without specific times appear at the end of their priority group."""
+    owner = Owner()
+    pet = Pet(name="Pet", tasks=[])
+    task1 = Task("Timed Task", date.today(), "none", "medium", (time(10, 0), time(11, 0)))
+    task2 = Task("No Time Task", date.today(), "none", "medium")  # No specific_time
+    pet.add_task(task1)
+    pet.add_task(task2)
+    owner.add_pet(pet)
+    scheduler = Scheduler()
+    plan = scheduler.generate_daily_plan(owner, date.today())
+    assert len(plan) == 2
+    assert plan[0].description == "Timed Task"  # Timed task first
+    assert plan[1].description == "No Time Task"  # No time task at end
+
+
+def test_recurrence_weekly():
+    """Verify marking a weekly recurring task complete creates next week's occurrence."""
+    pet = Pet(name="Test Pet", tasks=[])
+    task = Task("Weekly Task", date.today(), "weekly", "high", (time(8, 0), time(9, 0)))
+    pet.add_task(task)
+    pet.mark_task_completed(task)
+    assert len(pet.tasks) == 2
+    new_task = [t for t in pet.tasks if not t.completed][0]
+    assert new_task.date_to_complete == date.today() + timedelta(weeks=1)
+    assert new_task.recurring_frequency == "weekly"
+
+
+def test_recurrence_monthly():
+    """Verify marking a monthly recurring task complete creates next month's occurrence."""
+    pet = Pet(name="Test Pet", tasks=[])
+    task = Task("Monthly Task", date.today(), "monthly", "high", (time(8, 0), time(9, 0)))
+    pet.add_task(task)
+    pet.mark_task_completed(task)
+    assert len(pet.tasks) == 2
+    new_task = [t for t in pet.tasks if not t.completed][0]
+    # Calculate next month (simplified, assumes no year rollover issues)
+    next_month = date.today().replace(month=date.today().month % 12 + 1)
+    if date.today().month == 12:
+        next_month = next_month.replace(year=date.today().year + 1)
+    assert new_task.date_to_complete == next_month
+    assert new_task.recurring_frequency == "monthly"
+
+
+def test_scheduler_detect_exact_time_conflicts():
+    """Verify detect_conflicts flags tasks with identical time slots."""
+    scheduler = Scheduler()
+    task1 = Task("Task1", date.today(), "none", "high", (time(8, 0), time(9, 0)))
+    task2 = Task("Task2", date.today(), "none", "medium", (time(8, 0), time(9, 0)))  # Exact duplicate
+    task3 = Task("Task3", date.today(), "none", "low", (time(10, 0), time(11, 0)))  # No conflict
+    tasks = [task1, task2, task3]
+    
+    conflicts = scheduler.detect_conflicts(tasks)
+    assert len(conflicts) == 1
+    assert (task1, task2) in conflicts or (task2, task1) in conflicts
+
+
+def test_scheduler_detect_multiple_conflicts():
+    """Verify detect_conflicts handles multiple overlapping pairs."""
+    scheduler = Scheduler()
+    task1 = Task("Task1", date.today(), "none", "high", (time(8, 0), time(10, 0)))
+    task2 = Task("Task2", date.today(), "none", "medium", (time(9, 0), time(11, 0)))  # Overlaps with task1
+    task3 = Task("Task3", date.today(), "none", "low", (time(9, 30), time(12, 0)))  # Overlaps with task2 and task1
+    tasks = [task1, task2, task3]
+    
+    conflicts = scheduler.detect_conflicts(tasks)
+    assert len(conflicts) == 3  # (task1,task2), (task1,task3), and (task2,task3)
+    # Check that all expected pairs are present (order doesn't matter)
+    conflict_pairs = set()
+    for t1, t2 in conflicts:
+        conflict_pairs.add((t1.description, t2.description))
+        conflict_pairs.add((t2.description, t1.description))  # Add both orders
+    expected_pairs = {("Task1", "Task2"), ("Task1", "Task3"), ("Task2", "Task3")}
+    assert expected_pairs.issubset(conflict_pairs)
