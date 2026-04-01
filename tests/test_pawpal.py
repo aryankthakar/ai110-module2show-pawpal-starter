@@ -1,5 +1,5 @@
 import pytest
-from datetime import date, time
+from datetime import date, time, timedelta
 from pawpal_system import Task, Pet, Owner, Scheduler
 
 
@@ -179,3 +179,72 @@ def test_scheduler_print_daily_plan(capsys):
     assert "Today's Schedule:" in captured.out
     assert "Task1 (high priority): 08:00:00 - 09:00:00" in captured.out
     assert "Task2 (medium priority): No time specified" in captured.out
+
+
+def test_owner_filter_tasks_by_completion():
+    """Verify filter_tasks filters by completion status."""
+    owner = Owner()
+    pet = Pet(name="Test Pet", tasks=[])
+    task1 = Task("Task1", date.today(), "none", "high")
+    task2 = Task("Task2", date.today(), "none", "medium")
+    task2.mark_completed()
+    pet.add_task(task1)
+    pet.add_task(task2)
+    owner.add_pet(pet)
+
+    incomplete = owner.filter_tasks(completed=False)
+    assert len(incomplete) == 1
+    assert incomplete[0].description == "Task1"
+
+    complete = owner.filter_tasks(completed=True)
+    assert len(complete) == 1
+    assert complete[0].description == "Task2"
+
+
+def test_owner_filter_tasks_by_pet_name():
+    """Verify filter_tasks filters by pet name."""
+    owner = Owner()
+    pet1 = Pet(name="Pet1", tasks=[])
+    pet2 = Pet(name="Pet2", tasks=[])
+    task1 = Task("Task1", date.today(), "none", "high")
+    task2 = Task("Task2", date.today(), "none", "medium")
+    pet1.add_task(task1)
+    pet2.add_task(task2)
+    owner.add_pet(pet1)
+    owner.add_pet(pet2)
+
+    pet1_tasks = owner.filter_tasks(pet_name="Pet1")
+    assert len(pet1_tasks) == 1
+    assert pet1_tasks[0].description == "Task1"
+
+    pet2_tasks = owner.filter_tasks(pet_name="Pet2")
+    assert len(pet2_tasks) == 1
+    assert pet2_tasks[0].description == "Task2"
+
+
+def test_pet_mark_task_completed_recurring():
+    """Verify mark_task_completed creates next occurrence for recurring tasks."""
+    pet = Pet(name="Test Pet", tasks=[])
+    task = Task("Daily Task", date.today(), "daily", "high", (time(8, 0), time(9, 0)))
+    pet.add_task(task)
+    assert len(pet.tasks) == 1
+    pet.mark_task_completed(task)
+    assert task.completed is True
+    assert len(pet.tasks) == 2  # Original + new
+    new_task = [t for t in pet.tasks if not t.completed][0]
+    assert new_task.date_to_complete == date.today() + timedelta(days=1)
+    assert new_task.description == "Daily Task"
+    assert new_task.recurring_frequency == "daily"
+
+
+def test_scheduler_detect_conflicts():
+    """Verify detect_conflicts identifies overlapping tasks."""
+    scheduler = Scheduler()
+    task1 = Task("Task1", date.today(), "none", "high", (time(8, 0), time(9, 0)))
+    task2 = Task("Task2", date.today(), "none", "medium", (time(8, 30), time(9, 30)))  # Overlaps with task1
+    task3 = Task("Task3", date.today(), "none", "low", (time(10, 0), time(11, 0)))  # No overlap
+    tasks = [task1, task2, task3]
+    
+    conflicts = scheduler.detect_conflicts(tasks)
+    assert len(conflicts) == 1
+    assert (task1, task2) in conflicts or (task2, task1) in conflicts

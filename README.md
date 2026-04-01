@@ -22,6 +22,33 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+This implementation includes advanced scheduling features that go beyond basic task management:
+
+### 🔄 **Automatic Recurring Tasks**
+- Daily and weekly recurring tasks automatically create next occurrences when completed
+- No manual rescheduling required for routine pet care
+
+### ⚡ **Intelligent Conflict Detection**
+- Detects overlapping time windows between tasks
+- Provides clear warnings without preventing scheduling
+- Optimized O(n log n) algorithm for performance
+
+### 🔍 **Flexible Task Filtering**
+- Filter tasks by completion status (completed/incomplete)
+- Filter by specific pet names
+- Combine filters for precise task queries
+
+### ⏰ **Multiple Sorting Options**
+- Priority-based sorting (high → medium → low, then by time)
+- Time-based sorting for chronological views
+- Customizable display options
+
+### 📊 **Comprehensive Testing**
+- 17 unit tests covering all major functionality
+- Edge case handling and algorithmic validation
+
 ## Getting started
 
 ### Setup

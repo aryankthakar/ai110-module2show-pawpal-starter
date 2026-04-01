@@ -66,6 +66,10 @@ The intentions in the README.md described "owner preference" and "time constrain
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+One tradeoff is that the scheduler detects time conflicts between tasks but does not automatically resolve them or prevent scheduling conflicting tasks. Instead, it simply warns the user about overlaps and continues with the schedule as planned.
+
+This tradeoff is reasonable because pet owners may have valid reasons for scheduling overlapping tasks (e.g., one task might be flexible, or they might need to choose between alternatives). Automatic resolution could be overly prescriptive and remove user control. The warning approach provides awareness without restricting flexibility, allowing owners to make informed decisions about their pet care routines.
+
 ---
 
 ## 3. AI Collaboration

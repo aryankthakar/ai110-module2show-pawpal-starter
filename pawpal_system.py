@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import List, Tuple
-from datetime import date, time
+from typing import List, Tuple, Optional
+from datetime import date, time, timedelta
 
 
 @dataclass
@@ -72,6 +72,36 @@ class Pet:
         if task in self.tasks:
             self.tasks.remove(task)
 
+    def mark_task_completed(self, task: Task) -> None:
+        """
+        Mark a task as completed and automatically create the next occurrence if recurring.
+
+        This method handles the completion workflow for recurring tasks by automatically
+        scheduling the next instance based on the recurrence pattern.
+
+        Args:
+            task: The Task object to mark as completed. Must belong to this pet.
+
+        Behavior:
+            - Marks the task as completed
+            - For daily recurring tasks: Creates new task for next day
+            - For weekly recurring tasks: Creates new task for next week
+            - For non-recurring tasks: No additional action
+
+        Note:
+            If the task doesn't belong to this pet, no action is taken.
+        """
+        if task in self.tasks:
+            task.mark_completed()
+            if task.recurring_frequency == "daily":
+                next_date = task.date_to_complete + timedelta(days=1)
+                new_task = Task(task.description, next_date, task.recurring_frequency, task.owner_preference, task.specific_time)
+                self.add_task(new_task)
+            elif task.recurring_frequency == "weekly":
+                next_date = task.date_to_complete + timedelta(weeks=1)
+                new_task = Task(task.description, next_date, task.recurring_frequency, task.owner_preference, task.specific_time)
+                self.add_task(new_task)
+
 
 class Owner:
     """
@@ -97,6 +127,45 @@ class Owner:
     def get_all_tasks(self) -> List[Task]:
         """Retrieve a flattened list of all tasks from all pets."""
         return [task for pet in self.pets for task in pet.tasks]
+
+    def filter_tasks(self, completed: Optional[bool] = None, pet_name: Optional[str] = None) -> List[Task]:
+        """
+        Filter tasks by completion status and/or pet name.
+
+        Provides flexible querying of tasks across all pets owned by this owner.
+        Filters can be combined (e.g., incomplete tasks for a specific pet).
+
+        Args:
+            completed: Filter by completion status.
+                - True: Return only completed tasks
+                - False: Return only incomplete tasks
+                - None: Include all tasks regardless of completion status
+            pet_name: Filter by specific pet name.
+                - If provided: Return only tasks for the specified pet
+                - None: Include tasks from all pets
+
+        Returns:
+            List of Task objects matching the filter criteria.
+            Returns all tasks if no filters are specified.
+
+        Examples:
+            >>> owner.filter_tasks(completed=False)  # Get all incomplete tasks
+            >>> owner.filter_tasks(pet_name="Buddy")  # Get all tasks for Buddy
+            >>> owner.filter_tasks(completed=True, pet_name="Joey")  # Completed tasks for Joey
+        """
+        tasks = self.get_all_tasks()
+
+        if completed is not None:
+            tasks = [t for t in tasks if t.completed == completed]
+
+        if pet_name is not None:
+            pet_tasks = []
+            for pet in self.pets:
+                if pet.name == pet_name:
+                    pet_tasks.extend(pet.tasks)
+            tasks = [t for t in tasks if t in pet_tasks]
+
+        return tasks
 
 
 class Scheduler:
@@ -124,6 +193,22 @@ class Scheduler:
         """Convert preference string to a numeric value for sorting."""
         mapping = {"high": 1, "medium": 2, "low": 3}
         return mapping.get(pref.lower(), 4)
+
+    def sort_by_time(self, tasks: List[Task]) -> List[Task]:
+        """
+        Sort tasks by their start time, with tasks without specific times at the end.
+
+        This method provides an alternative sorting to the priority-based sorting in
+        generate_daily_plan(), useful for chronological ordering.
+
+        Args:
+            tasks: List of Task objects to sort
+
+        Returns:
+            New list of tasks sorted by start time (ascending), with tasks without
+            specific_time placed at the end
+        """
+        return sorted(tasks, key=lambda t: t.specific_time[0] if t.specific_time else time.max)
 
     def generate_daily_plan(self, owner: Owner, target_date: date) -> List[Task]:
         """
@@ -158,3 +243,87 @@ class Scheduler:
                 print(f"- {task.description} ({task.owner_preference} priority): {time_str}")
         else:
             print("No tasks scheduled.")
+
+    def detect_conflicts(self, tasks: List[Task]) -> List[Tuple[Task, Task]]:
+        """
+        Detect time conflicts between tasks with overlapping time ranges.
+
+        Uses an optimized algorithm that sorts tasks by start time to reduce
+        unnecessary comparisons. Only tasks with specific_time defined are checked.
+
+        Args:
+            tasks: List of Task objects to check for conflicts
+
+        Returns:
+            List of tuples, where each tuple contains two conflicting Task objects.
+            Each pair represents tasks that have overlapping time windows.
+
+        Algorithm:
+            1. Filter tasks with specific_time
+            2. Sort by start time (O(n log n))
+            3. Check adjacent tasks for overlaps with early exit optimization
+            4. Return list of conflicting pairs
+
+        Time Complexity: O(n log n + k) where k is number of potential overlaps
+        """
+        conflicts = []
+        # Sort tasks by start time for better performance (optional optimization)
+        tasks_with_time = [t for t in tasks if t.specific_time]
+        tasks_with_time.sort(key=lambda t: t.specific_time[0])
+        
+        for i in range(len(tasks_with_time)):
+            for j in range(i + 1, len(tasks_with_time)):
+                task1, task2 = tasks_with_time[i], tasks_with_time[j]
+                # Early exit if task2 starts after task1 ends (since sorted)
+                if task2.specific_time[0] >= task1.specific_time[1]:
+                    break
+                if self._tasks_overlap(task1, task2):
+                    conflicts.append((task1, task2))
+        return conflicts
+
+    def _tasks_overlap(self, task1: Task, task2: Task) -> bool:
+        """
+        Check if two tasks have overlapping time ranges.
+
+        Uses the standard interval overlap algorithm: two intervals [a,b] and [c,d]
+        overlap if a < d and c < b.
+
+        Args:
+            task1: First task with specific_time defined
+            task2: Second task with specific_time defined
+
+        Returns:
+            True if the tasks' time windows overlap, False otherwise
+
+        Note:
+            Assumes both tasks have specific_time defined (should be checked by caller)
+        """
+        start1, end1 = task1.specific_time
+        start2, end2 = task2.specific_time
+        return start1 < end2 and start2 < end1
+
+    def print_conflicts(self, conflicts: List[Tuple[Task, Task]]) -> None:
+        """
+        Print detected conflicts to the console in a user-friendly format.
+
+        Displays conflict information to help users identify scheduling issues
+        without halting program execution.
+
+        Args:
+            conflicts: List of tuples containing conflicting task pairs,
+                as returned by detect_conflicts()
+
+        Output Format:
+            If conflicts exist:
+                "Schedule Conflicts Detected:"
+                "- 'Task A' (start-end) conflicts with 'Task B' (start-end)"
+                ...
+            If no conflicts:
+                "No conflicts detected."
+        """
+        if conflicts:
+            print("Schedule Conflicts Detected:")
+            for task1, task2 in conflicts:
+                print(f"- '{task1.description}' ({task1.specific_time[0]}-{task1.specific_time[1]}) conflicts with '{task2.description}' ({task2.specific_time[0]}-{task2.specific_time[1]})")
+        else:
+            print("No conflicts detected.")
